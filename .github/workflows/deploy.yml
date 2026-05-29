@@ -1,0 +1,60 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    name: Deploy agent-constructora
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            set -e
+
+            DEPLOY_DIR="/opt/agent/mcp-ghl"
+
+            echo "=== Pulling latest code ==="
+            cd "$DEPLOY_DIR"
+            git fetch origin master
+            git reset --hard origin/master
+
+            echo "=== Building and restarting ==="
+            docker compose build --no-cache
+            # Stop and remove existing containers (incl. orphans left by an
+            # interrupted recreate) so the fixed container_name is free to reuse.
+            docker compose down --remove-orphans
+            # Belt-and-suspenders: drop any stale container still holding the name.
+            docker rm -f mcp-ghl 2>/dev/null || true
+            docker compose up -d --force-recreate
+
+            echo "=== Cleanup ==="
+            docker image prune -f
+            docker builder prune -a -f --filter "until=24h"
+
+            echo "=== Waiting for health check ==="
+            MAX_RETRIES=10
+            RETRY_INTERVAL=5
+            for i in $(seq 1 $MAX_RETRIES); do
+              if curl -sf http://localhost:8009/health > /dev/null 2>&1; then
+                echo "Health check passed on attempt $i"
+                exit 0
+              fi
+              echo "Attempt $i/$MAX_RETRIES failed, waiting ${RETRY_INTERVAL}s..."
+              sleep $RETRY_INTERVAL
+            done
+
+            echo "ERROR: Health check failed after $MAX_RETRIES attempts"
+            echo "=== Container logs ==="
+            docker compose logs --tail=50 mcp-ghl
+            exit 1

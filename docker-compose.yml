@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  mcp-adeptos-crm:
+    build: .
+    container_name: mcp-adeptos-crm
+    restart: always
+    ports:
+      - "3005:3005"
+    environment:
+      - NODE_ENV=development
+      - PORT=3005
+      - ADEPTOS_API_BASE_URL=http://host.docker.internal:4000
+      # Provide these in an actual .env file or environment variables
+      # - ADEPTOS_JWT_TOKEN=your_token_here
+      # - ADEPTOS_BUSINESS_ID=1
+    env_file:
+      - .env
