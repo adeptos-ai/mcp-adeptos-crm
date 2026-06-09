@@ -7,7 +7,7 @@ on:
 
 jobs:
   deploy:
-    name: Deploy agent-constructora
+    name: Deploy mcp-adeptos-crm
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -22,7 +22,7 @@ jobs:
           script: |
             set -e
 
-            DEPLOY_DIR="/opt/agent/mcp-ghl"
+            DEPLOY_DIR="/opt/agent/mcp-adeptos-crm"
 
             echo "=== Pulling latest code ==="
             cd "$DEPLOY_DIR"
@@ -35,7 +35,7 @@ jobs:
             # interrupted recreate) so the fixed container_name is free to reuse.
             docker compose down --remove-orphans
             # Belt-and-suspenders: drop any stale container still holding the name.
-            docker rm -f mcp-ghl 2>/dev/null || true
+            docker rm -f mcp-adeptos-crm 2>/dev/null || true
             docker compose up -d --force-recreate
 
             echo "=== Cleanup ==="
@@ -46,7 +46,7 @@ jobs:
             MAX_RETRIES=10
             RETRY_INTERVAL=5
             for i in $(seq 1 $MAX_RETRIES); do
-              if curl -sf http://localhost:8009/health > /dev/null 2>&1; then
+              if curl -sf http://localhost:3005/health > /dev/null 2>&1; then
                 echo "Health check passed on attempt $i"
                 exit 0
               fi
@@ -56,5 +56,5 @@ jobs:
 
             echo "ERROR: Health check failed after $MAX_RETRIES attempts"
             echo "=== Container logs ==="
-            docker compose logs --tail=50 mcp-ghl
+            docker compose logs --tail=50 mcp-adeptos-crm
             exit 1

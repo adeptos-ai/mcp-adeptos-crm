@@ -10,9 +10,15 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=3005
-      - ADEPTOS_API_BASE_URL=http://host.docker.internal:4000
+      - ADEPTOS_API_BASE_URL=https://api.adeptos.ai
       # Provide these in an actual .env file or environment variables
       # - ADEPTOS_JWT_TOKEN=your_token_here
       # - ADEPTOS_BUSINESS_ID=1
     env_file:
       - .env
+    networks:
+      - fr-hotel-network
+
+networks:
+  fr-hotel-network:
+    external: true
