@@ -12,8 +12,8 @@ export class OpportunityService {
     return this.client.getOpportunities(businessId);
   }
 
-  async createOpportunity(data: CreateOpportunityRequest) {
-    return this.client.createOpportunity(data);
+  async createOpportunity(businessId: number, data: CreateOpportunityRequest) {
+    return this.client.createOpportunity(businessId, data);
   }
 
   async updateOpportunity(oppId: number, data: UpdateOpportunityRequest) {

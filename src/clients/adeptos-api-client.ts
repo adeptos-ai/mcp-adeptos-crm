@@ -199,11 +199,14 @@ export class AdeptosApiClient {
     }
   }
 
-  async createOpportunity(data: CreateOpportunityRequest): Promise<AdeptosApiResponse<OpportunityResponse>> {
+  async createOpportunity(businessId: number, data: CreateOpportunityRequest): Promise<AdeptosApiResponse<OpportunityResponse>> {
     try {
       const response: AxiosResponse<OpportunityResponse> = await this.axiosInstance.post(
         '/api/v1/opportunity/',
-        data
+        {
+          ...data,
+          businessId
+        }
       );
       return this.wrapResponse(response.data);
     } catch (error) {

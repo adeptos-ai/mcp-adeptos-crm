@@ -71,7 +71,7 @@ export class OpportunityTools implements ToolProvider {
         return await this.controller.handleGetOpportunities(this.businessId);
       case 'create_opportunity': {
         const validParams = CreateOpportunitySchema.parse(params);
-        return await this.controller.handleCreateOpportunity(validParams);
+        return await this.controller.handleCreateOpportunity(this.businessId, validParams);
       }
       case 'update_opportunity': {
         if (!params.opp_id) throw new Error("opp_id is required");

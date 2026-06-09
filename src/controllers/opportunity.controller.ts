@@ -14,9 +14,9 @@ export class OpportunityController {
     return this.service.getOpportunities(businessId);
   }
 
-  async handleCreateOpportunity(data: any) {
-    logger.info(`[OpportunityController] createOpportunity called`, data);
-    return this.service.createOpportunity(data);
+  async handleCreateOpportunity(businessId: number, data: any) {
+    logger.info(`[OpportunityController] createOpportunity called for businessId: ${businessId}`, data);
+    return this.service.createOpportunity(businessId, data);
   }
 
   async handleUpdateOpportunity(oppId: number, data: any) {

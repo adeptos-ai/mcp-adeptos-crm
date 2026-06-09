@@ -86,7 +86,6 @@ Trae todas las oportunidades en el tablero.
 ### `create_opportunity`
 Crea una nueva oportunidad (tarjeta en el pipeline).
 - **Parámetros:**
-  - `businessId` (integer, **requerido**): ID del negocio.
   - `customerId` (integer, **requerido**): ID del contacto/lead asociado.
   - `stageId` (integer, **requerido**): ID de la etapa en donde caerá.
   - `name` (string, **requerido**): Título de la oportunidad (ej. "Negociación Empresa X").

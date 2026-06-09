@@ -1,7 +1,6 @@
 import { z } from 'zod';
 
 export const CreateOpportunitySchema = z.object({
-  businessId: z.number().int().positive(),
   customerId: z.number().int().positive(),
   stageId: z.number().int().positive(),
   name: z.string().min(1),
