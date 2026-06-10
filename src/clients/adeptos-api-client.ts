@@ -16,6 +16,7 @@ export class AdeptosApiClient {
       baseURL: config.baseUrl,
       headers: {
         'Authorization': `Bearer ${config.accessToken}`,
+        'Cookie': `adeptos_jwt=${config.accessToken}`,
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
