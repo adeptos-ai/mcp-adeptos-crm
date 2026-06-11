@@ -15,6 +15,9 @@ import { CalendarTools } from '../tools/calendar-tools.js';
 import { OpportunityService } from './opportunity.service.js';
 import { OpportunityController } from '../controllers/opportunity.controller.js';
 import { OpportunityTools } from '../tools/opportunity-tools.js';
+import { ProductsService } from './products.service.js';
+import { ProductsController } from '../controllers/products.controller.js';
+import { ProductTools } from '../tools/product-tools.js';
 import { ToolProvider } from '../types/tool-provider.js';
 import { config } from '../config/env.js';
 import { logger } from '../utils/logger.js';
@@ -35,10 +38,14 @@ export class McpService {
     const opportunityService = new OpportunityService(client);
     const opportunityController = new OpportunityController(opportunityService);
 
+    const productsService = new ProductsService(client);
+    const productsController = new ProductsController(productsService);
+
     const providers: ToolProvider[] = [
       new ContactTools(contactsController, businessId),
       new CalendarTools(calendarController, businessId),
-      new OpportunityTools(opportunityController, businessId)
+      new OpportunityTools(opportunityController, businessId),
+      new ProductTools(productsController, businessId)
     ];
 
     const flatTools = providers.flatMap(p => p.getTools());

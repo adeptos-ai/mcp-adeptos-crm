@@ -6,6 +6,7 @@ import { OpportunityResponse, Pipeline } from '../types/interfaces/opportunities
 import { CreateContactRequest, UpdateContactRequest } from '../types/schemas/contacts.js';
 import { CreateAppointmentRequest, UpdateAppointmentRequest } from '../types/schemas/calendar.js';
 import { CreateOpportunityRequest, UpdateOpportunityRequest, MoveOpportunityRequest } from '../types/schemas/opportunities.js';
+import { ProductsListApiResponse, CollectionsApiResponse, InventoryApiResponse } from '../types/interfaces/products.js';
 import { logger } from '../utils/logger.js';
 
 export class AdeptosApiClient {
@@ -243,6 +244,54 @@ export class AdeptosApiClient {
     try {
       const response: AxiosResponse<{ message: string }> = await this.axiosInstance.delete(
         `/api/v1/opportunity/${oppId}?businessId=${businessId}`
+      );
+      return this.wrapResponse(response.data);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // PRODUCTS
+  // ---------------------------------------------------------------------------
+
+  async getProducts(
+    businessId: number,
+    filters?: { search?: string; productType?: string; collectionId?: number; limit?: number; offset?: number }
+  ): Promise<AdeptosApiResponse<ProductsListApiResponse>> {
+    try {
+      const params = new URLSearchParams();
+      params.append('businessId', businessId.toString());
+      if (filters?.search) params.append('search', filters.search);
+      if (filters?.productType) params.append('productType', filters.productType);
+      if (filters?.collectionId) params.append('collectionId', filters.collectionId.toString());
+      if (filters?.limit) params.append('limit', filters.limit.toString());
+      if (filters?.offset) params.append('offset', filters.offset.toString());
+
+      const response: AxiosResponse<ProductsListApiResponse> = await this.axiosInstance.get(
+        `/api/v1/product/?${params.toString()}`
+      );
+      return this.wrapResponse(response.data);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getInventory(businessId: number): Promise<AdeptosApiResponse<InventoryApiResponse>> {
+    try {
+      const response: AxiosResponse<InventoryApiResponse> = await this.axiosInstance.get(
+        `/api/v1/product/inventory?businessId=${businessId}`
+      );
+      return this.wrapResponse(response.data);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getProductCollections(businessId: number): Promise<AdeptosApiResponse<CollectionsApiResponse>> {
+    try {
+      const response: AxiosResponse<CollectionsApiResponse> = await this.axiosInstance.get(
+        `/api/v1/product/collections?businessId=${businessId}`
       );
       return this.wrapResponse(response.data);
     } catch (error) {
