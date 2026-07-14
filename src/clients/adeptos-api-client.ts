@@ -7,6 +7,17 @@ import { CreateContactRequest, UpdateContactRequest } from '../types/schemas/con
 import { CreateAppointmentRequest, UpdateAppointmentRequest } from '../types/schemas/calendar.js';
 import { CreateOpportunityRequest, UpdateOpportunityRequest, MoveOpportunityRequest } from '../types/schemas/opportunities.js';
 import { ProductsListApiResponse, CollectionsApiResponse, InventoryApiResponse } from '../types/interfaces/products.js';
+import {
+  CreatePurchaseOrderApiResponse,
+  PurchaseOrderApiResponse,
+  PurchaseOrdersListApiResponse,
+  PurchaseOrdersSummaryApiResponse,
+} from '../types/interfaces/order.js';
+import {
+  CreatePurchaseOrderRequest,
+  GetPurchaseOrdersRequest,
+  UpdatePurchaseOrderStatusRequest,
+} from '../types/schemas/order.js';
 import { logger } from '../utils/logger.js';
 
 export class AdeptosApiClient {
@@ -53,7 +64,15 @@ export class AdeptosApiClient {
 
   private handleApiError(error: AxiosError<any>): Error {
     const status = error.response?.status || 500;
-    const message = error.response?.data?.error || error.message || 'Unknown error';
+    const data = error.response?.data;
+    let message = error.message || 'Unknown error';
+    if (typeof data?.error === 'string') {
+      message = data.error;
+    } else if (data?.error?.message) {
+      message = data.error.message;
+    } else if (typeof data?.message === 'string') {
+      message = data.message;
+    }
     return new Error(`Adeptos API Error (${status}): ${message}`);
   }
 
@@ -293,6 +312,111 @@ export class AdeptosApiClient {
       const response: AxiosResponse<CollectionsApiResponse> = await this.axiosInstance.get(
         `/api/v1/product/collections?businessId=${businessId}`
       );
+      return this.wrapResponse(response.data);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // PURCHASE ORDERS
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Creates via JWT-protected POST /api/v1/purchase-orders/.
+   * Falls back to the public agent endpoint if the protected route is unavailable (404/405).
+   */
+  async createPurchaseOrder(
+    data: CreatePurchaseOrderRequest
+  ): Promise<AdeptosApiResponse<CreatePurchaseOrderApiResponse>> {
+    const body = {
+      agent_id: data.agent_id,
+      customer_phone: data.customer_phone,
+      customer_name: data.customer_name ?? '',
+      product: data.product,
+      variant: data.variant ?? '',
+      quantity: data.quantity,
+      note: data.note ?? '',
+      session_id: data.session_id ?? '',
+    };
+
+    try {
+      const response: AxiosResponse<CreatePurchaseOrderApiResponse> =
+        await this.axiosInstance.post('/api/v1/purchase-orders/', body);
+      return this.wrapResponse(response.data);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const canFallback = /\((404|405)\)/.test(message);
+      if (!canFallback) {
+        throw error;
+      }
+      logger.warn(
+        '[ADEPTOS API] Protected create purchase-order unavailable; falling back to agent endpoint'
+      );
+      const response: AxiosResponse<CreatePurchaseOrderApiResponse> =
+        await this.axiosInstance.post('/api/v1/agent/purchase-order', body);
+      return this.wrapResponse(response.data);
+    }
+  }
+
+  async getPurchaseOrders(
+    businessId: number,
+    filters?: GetPurchaseOrdersRequest
+  ): Promise<AdeptosApiResponse<PurchaseOrdersListApiResponse>> {
+    try {
+      const params = new URLSearchParams();
+      params.append('businessId', businessId.toString());
+      if (filters?.status) params.append('status', filters.status);
+      if (filters?.search) params.append('search', filters.search);
+      if (filters?.limit != null) params.append('limit', String(filters.limit));
+      if (filters?.offset != null) params.append('offset', String(filters.offset));
+
+      const response: AxiosResponse<PurchaseOrdersListApiResponse> =
+        await this.axiosInstance.get(
+          `/api/v1/purchase-orders/?${params.toString()}`
+        );
+      return this.wrapResponse(response.data);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getPurchaseOrder(
+    orderId: number
+  ): Promise<AdeptosApiResponse<PurchaseOrderApiResponse>> {
+    try {
+      const response: AxiosResponse<PurchaseOrderApiResponse> =
+        await this.axiosInstance.get(`/api/v1/purchase-orders/${orderId}`);
+      return this.wrapResponse(response.data);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async updatePurchaseOrderStatus(
+    orderId: number,
+    data: UpdatePurchaseOrderStatusRequest
+  ): Promise<AdeptosApiResponse<PurchaseOrderApiResponse>> {
+    try {
+      const response: AxiosResponse<PurchaseOrderApiResponse> =
+        await this.axiosInstance.put(
+          `/api/v1/purchase-orders/${orderId}/status`,
+          { status: data.status }
+        );
+      return this.wrapResponse(response.data);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getPurchaseOrdersSummary(
+    businessId: number
+  ): Promise<AdeptosApiResponse<PurchaseOrdersSummaryApiResponse>> {
+    try {
+      const response: AxiosResponse<PurchaseOrdersSummaryApiResponse> =
+        await this.axiosInstance.get(
+          `/api/v1/purchase-orders/summary?businessId=${businessId}`
+        );
       return this.wrapResponse(response.data);
     } catch (error) {
       throw error;

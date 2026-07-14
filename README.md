@@ -80,22 +80,22 @@ console.log(tools);
 ```
 
 ### Herramientas Expuestas
-Al listar las tools, el agente descubrirá automáticamente 15 herramientas pre-validadas por Zod:
+Al listar las tools, el agente descubrirá automáticamente herramientas pre-validadas por Zod:
 
-#### 👤 Contactos
+#### Contactos
 - `get_contacts`
 - `create_contact`
 - `update_contact`
 - `delete_contact`
 
-#### 📅 Calendario y Citas
+#### Calendario y Citas
 - `get_calendars`
 - `get_appointments`
 - `create_appointment`
 - `update_appointment`
 - `delete_appointment`
 
-#### 📈 Oportunidades y Pipelines
+#### Oportunidades y Pipelines
 - `get_pipelines`
 - `get_opportunities`
 - `create_opportunity`
@@ -103,7 +103,19 @@ Al listar las tools, el agente descubrirá automáticamente 15 herramientas pre-
 - `move_opportunity`
 - `delete_opportunity`
 
-> 💡 **Nota de Seguridad y Errores**: Si el agente envía datos incorrectos o le falta un campo requerido en el payload, el MCP interceptará el error de validación de `Zod` y responderá un texto plano indicándole al agente exactamente en qué se equivocó, para que el LLM lo pueda corregir y re-intentar automáticamente.
+#### Productos
+- `get_products`
+- `check_product_availability`
+- `get_product_collections`
+
+#### Órdenes de compra
+- `create_purchase_order`
+- `get_purchase_orders`
+- `get_purchase_order`
+- `update_purchase_order_status`
+- `get_purchase_orders_summary`
+
+> **Nota de Seguridad y Errores**: Si el agente envía datos incorrectos o le falta un campo requerido en el payload, el MCP interceptará el error de validación de `Zod` y responderá un texto plano indicándole al agente exactamente en qué se equivocó, para que el LLM lo pueda corregir y re-intentar automáticamente.
 
 ---
 

@@ -111,3 +111,44 @@ Mueve la oportunidad de una etapa a otra dentro del Pipeline.
 Elimina la oportunidad del tablero.
 - **Parámetros:**
   - `opp_id` (integer, **requerido**).
+
+---
+
+## 4. Órdenes de compra (Purchase Orders)
+
+Estas tools conectan con el sistema de `purchase_orders` del backend para que el agente registre y consulte intenciones reales de compra/reserva (sin alucinar).
+
+### `create_purchase_order`
+Registra (o refresca por dedupe 24h) una orden de compra/reserva.
+- **Parámetros:**
+  - `agent_id` (string, **requerido**): ID externo del agente (ej. `"35"`).
+  - `customer_phone` (string, **requerido**): Teléfono del cliente (ej. `"+573173062430"`).
+  - `product` (string, **requerido**): ID, slug o nombre del producto.
+  - `customer_name` (string, opcional).
+  - `variant` (string, opcional): Nombre/variante (ej. `"Talla M"`).
+  - `quantity` (integer, opcional): Cantidad positiva.
+  - `note` (string, opcional): Notas del cliente.
+  - `session_id` (string, opcional): ID de sesión conversacional.
+
+### `get_purchase_orders`
+Lista órdenes del negocio autenticado (`x-business-id`).
+- **Parámetros:**
+  - `status` (string, opcional): `new` | `contacted` | `completed` | `cancelled`.
+  - `search` (string, opcional): Busca por nombre, teléfono o producto.
+  - `limit` (integer, opcional, default 50).
+  - `offset` (integer, opcional, default 0).
+
+### `get_purchase_order`
+Obtiene una orden por ID.
+- **Parámetros:**
+  - `order_id` (integer, **requerido**).
+
+### `update_purchase_order_status`
+Cambia el estado de workflow de una orden.
+- **Parámetros:**
+  - `order_id` (integer, **requerido**).
+  - `status` (string, **requerido**): `new` | `contacted` | `completed` | `cancelled`.
+
+### `get_purchase_orders_summary`
+Devuelve conteos por estado + total.
+- **Parámetros:** `{}` (Ninguno)

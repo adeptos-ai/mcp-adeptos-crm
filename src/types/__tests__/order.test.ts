@@ -1,0 +1,165 @@
+import { describe, expect, it, vi, beforeEach } from 'vitest';
+import {
+  CreatePurchaseOrderSchema,
+  GetPurchaseOrdersSchema,
+  UpdatePurchaseOrderStatusSchema,
+} from '../schemas/order.js';
+import { OrderTools } from '../../tools/order-tools.js';
+import { OrderController } from '../../controllers/order.controller.js';
+
+describe('Purchase order Zod schemas', () => {
+  it('accepts a valid create payload like the agent curl example', () => {
+    const parsed = CreatePurchaseOrderSchema.parse({
+      agent_id: '35',
+      customer_name: 'Santiago Ospina',
+      product: '4',
+      variant: 'Talla M',
+      quantity: 3,
+      note: 'Quiere entrega para el viernes',
+      customer_phone: '+573173062430',
+      session_id: 'landing-2026-07-10-13-31-06-178-788f2512-1529-48b9-a672-50132fa73040',
+    });
+
+    expect(parsed.agent_id).toBe('35');
+    expect(parsed.product).toBe('4');
+    expect(parsed.quantity).toBe(3);
+  });
+
+  it('rejects create without required fields', () => {
+    expect(() =>
+      CreatePurchaseOrderSchema.parse({
+        agent_id: '',
+        customer_phone: '',
+        product: '',
+      })
+    ).toThrow();
+  });
+
+  it('rejects non-positive quantity', () => {
+    expect(() =>
+      CreatePurchaseOrderSchema.parse({
+        agent_id: '35',
+        customer_phone: '+573000000000',
+        product: '4',
+        quantity: 0,
+      })
+    ).toThrow();
+  });
+
+  it('defaults list filters', () => {
+    const parsed = GetPurchaseOrdersSchema.parse({});
+    expect(parsed.limit).toBe(50);
+    expect(parsed.offset).toBe(0);
+  });
+
+  it('accepts valid status updates only', () => {
+    expect(
+      UpdatePurchaseOrderStatusSchema.parse({ status: 'contacted' }).status
+    ).toBe('contacted');
+    expect(() =>
+      UpdatePurchaseOrderStatusSchema.parse({ status: 'pending' })
+    ).toThrow();
+  });
+});
+
+describe('OrderTools', () => {
+  const controller = {
+    handleCreatePurchaseOrder: vi.fn(),
+    handleGetPurchaseOrders: vi.fn(),
+    handleGetPurchaseOrder: vi.fn(),
+    handleUpdatePurchaseOrderStatus: vi.fn(),
+    handleGetPurchaseOrdersSummary: vi.fn(),
+  } as unknown as OrderController;
+
+  let tools: OrderTools;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    tools = new OrderTools(controller, 42);
+  });
+
+  it('exposes the five purchase-order tools', () => {
+    const names = tools.getTools().map((t) => t.name);
+    expect(names).toEqual([
+      'create_purchase_order',
+      'get_purchase_orders',
+      'get_purchase_order',
+      'update_purchase_order_status',
+      'get_purchase_orders_summary',
+    ]);
+  });
+
+  it('create_purchase_order validates and delegates', async () => {
+    (controller.handleCreatePurchaseOrder as any).mockResolvedValue({
+      success: true,
+      order: { id: 1 },
+    });
+
+    const result = await tools.executeTool('create_purchase_order', {
+      agent_id: '35',
+      customer_phone: '+573173062430',
+      product: '4',
+      quantity: 3,
+    });
+
+    expect(controller.handleCreatePurchaseOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agent_id: '35',
+        customer_phone: '+573173062430',
+        product: '4',
+        quantity: 3,
+      })
+    );
+    expect(result).toEqual({ success: true, order: { id: 1 } });
+  });
+
+  it('get_purchase_orders uses businessId from MCP session', async () => {
+    (controller.handleGetPurchaseOrders as any).mockResolvedValue({
+      success: true,
+      data: [],
+      total: 0,
+    });
+
+    await tools.executeTool('get_purchase_orders', { status: 'new' });
+
+    expect(controller.handleGetPurchaseOrders).toHaveBeenCalledWith(
+      42,
+      expect.objectContaining({ status: 'new', limit: 50 })
+    );
+  });
+
+  it('get_purchase_order requires a positive order_id', async () => {
+    await expect(
+      tools.executeTool('get_purchase_order', {})
+    ).rejects.toThrow('order_id is required');
+
+    await expect(
+      tools.executeTool('get_purchase_order', { order_id: -1 })
+    ).rejects.toThrow('order_id must be a positive integer');
+  });
+
+  it('update_purchase_order_status validates status + order_id', async () => {
+    (controller.handleUpdatePurchaseOrderStatus as any).mockResolvedValue({
+      success: true,
+    });
+
+    await tools.executeTool('update_purchase_order_status', {
+      order_id: 9,
+      status: 'completed',
+    });
+
+    expect(controller.handleUpdatePurchaseOrderStatus).toHaveBeenCalledWith(9, {
+      status: 'completed',
+    });
+  });
+
+  it('get_purchase_orders_summary delegates with businessId', async () => {
+    (controller.handleGetPurchaseOrdersSummary as any).mockResolvedValue({
+      success: true,
+      data: { total: 0 },
+    });
+
+    await tools.executeTool('get_purchase_orders_summary', {});
+    expect(controller.handleGetPurchaseOrdersSummary).toHaveBeenCalledWith(42);
+  });
+});

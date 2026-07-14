@@ -1,8 +1,36 @@
-node_modules/
-dist/
-.env
-.DS_Store
+# Dependencies / build output (never ship in git or docker context)
+node_modules
+dist
+coverage
 *.log
-coverage/
+.DS_Store
+
+# Secrets
+.env
+.env.local
+.env.*.local
+
+# Local package manager noise
+pnpm-lock.yaml
+pnpm-workspace.yaml
+.npmrc
+
+# IDE
 .vscode/
 .idea/
+
+# Accidental shell/docker scrap files
+reading
+resolve
+transferring
+CACHED
+ERROR
+[builder
+[internal]
+[--include
+[--omit
+[
+]
+=
+...]]
+12.0.1

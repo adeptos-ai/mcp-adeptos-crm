@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   mcp-adeptos-crm:
     build: .
@@ -8,17 +6,18 @@ services:
     ports:
       - "3005:3005"
     environment:
-      - NODE_ENV=development
-      - PORT=3005
-      - ADEPTOS_API_BASE_URL=https://api.adeptos.ai
-      # Provide these in an actual .env file or environment variables
-      # - ADEPTOS_JWT_TOKEN=your_token_here
-      # - ADEPTOS_BUSINESS_ID=1
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${PORT:-3005}
+      # Taken from .env (do not hardcode production here — it overrides env_file)
+      ADEPTOS_API_BASE_URL: ${ADEPTOS_API_BASE_URL:-http://adeptosApi:4000}
+      ADEPTOS_JWT_TOKEN: ${ADEPTOS_JWT_TOKEN:-}
+      ADEPTOS_BUSINESS_ID: ${ADEPTOS_BUSINESS_ID:-}
     env_file:
       - .env
     networks:
-      - fr-hotel-network
+      - api_adeptos-network
 
 networks:
-  fr-hotel-network:
+  # Same network as local adeptosApi / adeptosDB / adeptosRedis
+  api_adeptos-network:
     external: true
