@@ -17,23 +17,11 @@ coverage
 .DS_Store
 
 # Tests and local scripts (runtime image only needs compiled dist)
-src/**/*.test.ts
-src/**/__tests__
-src/scripts
+**/__tests__
+**/*.test.ts
 vitest.config.ts
 
 # Alternate lockfiles (Dockerfile uses npm + package-lock.json)
 pnpm-lock.yaml
 pnpm-workspace.yaml
 .npmrc
-
-# Accidental scrap files
-reading
-resolve
-transferring
-CACHED
-ERROR
-[builder
-[internal]
-[--include
-[--omit

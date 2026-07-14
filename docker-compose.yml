@@ -6,18 +6,19 @@ services:
     ports:
       - "3005:3005"
     environment:
-      NODE_ENV: ${NODE_ENV:-development}
+      NODE_ENV: ${NODE_ENV:-production}
       PORT: ${PORT:-3005}
-      # Taken from .env (do not hardcode production here — it overrides env_file)
-      ADEPTOS_API_BASE_URL: ${ADEPTOS_API_BASE_URL:-http://adeptosApi:4000}
+      ADEPTOS_API_BASE_URL: ${ADEPTOS_API_BASE_URL:-https://api.adeptos.ai}
       ADEPTOS_JWT_TOKEN: ${ADEPTOS_JWT_TOKEN:-}
       ADEPTOS_BUSINESS_ID: ${ADEPTOS_BUSINESS_ID:-}
     env_file:
       - .env
     networks:
-      - api_adeptos-network
+      - mcp-net
 
 networks:
-  # Same network as local adeptosApi / adeptosDB / adeptosRedis
-  api_adeptos-network:
+  # VPS default: fr-hotel-network (agents / other MCPs)
+  # Local Adeptos API: export MCP_DOCKER_NETWORK=api_adeptos-network
+  mcp-net:
+    name: ${MCP_DOCKER_NETWORK:-fr-hotel-network}
     external: true

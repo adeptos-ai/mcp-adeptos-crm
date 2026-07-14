@@ -19,18 +19,9 @@ pnpm-workspace.yaml
 .vscode/
 .idea/
 
-# Accidental shell/docker scrap files
+# Accidental shell/docker scrap filenames — do not match with bare "[" (breaks dockerignore globs)
 reading
 resolve
 transferring
 CACHED
 ERROR
-[builder
-[internal]
-[--include
-[--omit
-[
-]
-=
-...]]
-12.0.1
