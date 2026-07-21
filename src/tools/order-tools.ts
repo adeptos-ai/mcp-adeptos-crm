@@ -4,14 +4,18 @@ import { OrderController } from '../controllers/order.controller.js';
 import { ToolProvider } from '../types/tool-provider.js';
 import {
   CreatePurchaseOrderSchema,
+  CreatePurchaseOrderToolSchema,
   GetPurchaseOrdersSchema,
   UpdatePurchaseOrderStatusSchema,
 } from '../types/schemas/order.js';
+import { logger } from '../utils/logger.js';
 
 export class OrderTools implements ToolProvider {
   constructor(
     private controller: OrderController,
-    private businessId: number
+    private businessId: number,
+    /** Path / external agent id injected by demos via x-agent-id (per-agent, scalable). */
+    private defaultAgentId: string = ''
   ) {}
 
   getTools(): Tool[] {
@@ -21,9 +25,10 @@ export class OrderTools implements ToolProvider {
         description:
           'Register a customer purchase/reservation intent for a product. ' +
           'Use when the customer confirms they want to buy or reserve something. ' +
-          'Requires agent_id, customer_phone and product (id, slug or name). ' +
+          'Requires customer_phone and product (id, slug or name). ' +
+          'agent_id is optional (Path of this agent); the MCP session already scopes the business. ' +
           'Duplicates within 24h for the same phone+product refresh the existing open order.',
-        inputSchema: zodToJsonSchema(CreatePurchaseOrderSchema) as any,
+        inputSchema: zodToJsonSchema(CreatePurchaseOrderToolSchema) as any,
       },
       {
         name: 'get_purchase_orders',
@@ -71,13 +76,43 @@ export class OrderTools implements ToolProvider {
     ];
   }
 
+  /**
+   * Prefer the runtime Path (x-agent-id) over whatever the LLM guessed.
+   * That keeps every agent instance correct without hardcoding one id in catalog instructions.
+   */
+  private resolveAgentId(fromTool: unknown): string {
+    const headerId = (this.defaultAgentId || '').trim();
+    const argId =
+      typeof fromTool === 'string' ? fromTool.trim() : String(fromTool ?? '').trim();
+    if (headerId) {
+      if (argId && argId !== headerId) {
+        logger.warn(
+          `[OrderTools] Ignoring LLM agent_id=${argId}; using x-agent-id=${headerId}`
+        );
+      }
+      return headerId;
+    }
+    return argId;
+  }
+
   async executeTool(
     toolName: string,
     params: Record<string, unknown>
   ): Promise<unknown> {
     switch (toolName) {
       case 'create_purchase_order': {
-        const valid = CreatePurchaseOrderSchema.parse(params);
+        const draft = CreatePurchaseOrderToolSchema.parse(params);
+        const agentId = this.resolveAgentId(draft.agent_id);
+        const valid = CreatePurchaseOrderSchema.parse({
+          ...draft,
+          agent_id: agentId,
+          business_id: this.businessId,
+        });
+        if (!valid.agent_id && !valid.business_id) {
+          throw new Error(
+            'agent_id or business session is required to create a purchase order'
+          );
+        }
         return await this.controller.handleCreatePurchaseOrder(valid);
       }
       case 'get_purchase_orders': {

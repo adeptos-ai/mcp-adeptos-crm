@@ -9,9 +9,9 @@ export const PurchaseOrderStatusSchema = z.enum([
 
 export type PurchaseOrderStatus = z.infer<typeof PurchaseOrderStatusSchema>;
 
-/** Payload aligned with POST /api/v1/agent/purchase-order and JWT create. */
-export const CreatePurchaseOrderSchema = z.object({
-  agent_id: z.string().min(1, 'agent_id is required'),
+/** Tool input: agent_id is optional; MCP always sends business_id from the session. */
+export const CreatePurchaseOrderToolSchema = z.object({
+  agent_id: z.string().optional().default(''),
   customer_phone: z.string().min(1, 'customer_phone is required'),
   customer_name: z.string().optional().default(''),
   product: z.string().min(1, 'product is required'),
@@ -19,6 +19,12 @@ export const CreatePurchaseOrderSchema = z.object({
   quantity: z.number().int().positive().optional(),
   note: z.string().optional().default(''),
   session_id: z.string().optional().default(''),
+});
+
+/** Payload sent to Adeptos API (business_id enables backend fallback). */
+export const CreatePurchaseOrderSchema = CreatePurchaseOrderToolSchema.extend({
+  agent_id: z.string().optional().default(''),
+  business_id: z.number().int().positive().optional(),
 });
 export type CreatePurchaseOrderRequest = z.infer<typeof CreatePurchaseOrderSchema>;
 

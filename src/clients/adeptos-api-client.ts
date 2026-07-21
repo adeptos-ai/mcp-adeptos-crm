@@ -331,6 +331,7 @@ export class AdeptosApiClient {
   ): Promise<AdeptosApiResponse<CreatePurchaseOrderApiResponse>> {
     const body = {
       agent_id: data.agent_id,
+      business_id: data.business_id,
       customer_phone: data.customer_phone,
       customer_name: data.customer_name ?? '',
       product: data.product,

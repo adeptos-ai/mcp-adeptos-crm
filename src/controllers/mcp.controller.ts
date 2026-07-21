@@ -27,9 +27,27 @@ export class McpController {
       return;
     }
 
-    logger.debug(`Incoming MCP connection for Business ID: ${businessId}`);
-    
-    const server = this.mcpService.createServer(businessId, jwtToken);
+    // demos/standard injects Path via agent_id_header (configured as x-agent-id on catalog).
+    const rawAgent =
+      req.headers["x-agent-id"] ??
+      req.headers["x-agent-path"] ??
+      req.headers["agent-id"];
+    const defaultAgentId = (
+      Array.isArray(rawAgent) ? rawAgent[0] : rawAgent || ""
+    )
+      .toString()
+      .trim()
+      .replace(/^\/+/, "");
+
+    logger.debug(
+      `Incoming MCP connection businessId=${businessId} agentId=${defaultAgentId || "(none)"}`
+    );
+
+    const server = this.mcpService.createServer(
+      businessId,
+      jwtToken,
+      defaultAgentId
+    );
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
     });

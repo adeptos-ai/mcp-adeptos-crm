@@ -28,11 +28,20 @@ describe('Purchase order Zod schemas', () => {
   it('rejects create without required fields', () => {
     expect(() =>
       CreatePurchaseOrderSchema.parse({
-        agent_id: '',
         customer_phone: '',
         product: '',
       })
     ).toThrow();
+  });
+
+  it('accepts create with business_id and without agent_id', () => {
+    const parsed = CreatePurchaseOrderSchema.parse({
+      business_id: 7,
+      customer_phone: '+573000000000',
+      product: 'Orto',
+    });
+    expect(parsed.business_id).toBe(7);
+    expect(parsed.agent_id).toBe('');
   });
 
   it('rejects non-positive quantity', () => {
@@ -105,12 +114,66 @@ describe('OrderTools', () => {
     expect(controller.handleCreatePurchaseOrder).toHaveBeenCalledWith(
       expect.objectContaining({
         agent_id: '35',
+        business_id: 42,
         customer_phone: '+573173062430',
         product: '4',
         quantity: 3,
       })
     );
     expect(result).toEqual({ success: true, order: { id: 1 } });
+  });
+
+  it('create_purchase_order prefers x-agent-id default over LLM agent_id', async () => {
+    tools = new OrderTools(controller, 42, '2');
+    (controller.handleCreatePurchaseOrder as any).mockResolvedValue({
+      success: true,
+      order: { id: 9 },
+    });
+
+    await tools.executeTool('create_purchase_order', {
+      agent_id: 'wrong-id',
+      customer_phone: '+573123235534',
+      product: 'Orto',
+      quantity: 1,
+    });
+
+    expect(controller.handleCreatePurchaseOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ agent_id: '2', product: 'Orto' })
+    );
+  });
+
+  it('create_purchase_order fills agent_id from default when omitted', async () => {
+    tools = new OrderTools(controller, 42, '2');
+    (controller.handleCreatePurchaseOrder as any).mockResolvedValue({
+      success: true,
+      order: { id: 10 },
+    });
+
+    await tools.executeTool('create_purchase_order', {
+      customer_phone: '+573123235534',
+      product: 'Orto',
+    });
+
+    expect(controller.handleCreatePurchaseOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ agent_id: '2', business_id: 42 })
+    );
+  });
+
+  it('create_purchase_order always sends business_id from MCP session', async () => {
+    (controller.handleCreatePurchaseOrder as any).mockResolvedValue({
+      success: true,
+      order: { id: 11 },
+    });
+
+    await tools.executeTool('create_purchase_order', {
+      agent_id: 'wrong',
+      customer_phone: '+573123235534',
+      product: 'Orto',
+    });
+
+    expect(controller.handleCreatePurchaseOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ business_id: 42 })
+    );
   });
 
   it('get_purchase_orders uses businessId from MCP session', async () => {

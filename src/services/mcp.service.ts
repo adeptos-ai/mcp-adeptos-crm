@@ -26,7 +26,10 @@ import { config } from '../config/env.js';
 import { logger } from '../utils/logger.js';
 
 export class McpService {
-  createServer(businessId: number, jwtToken: string): Server {
+  /**
+   * @param defaultAgentId Path / remote agent id from x-agent-id (one value per agent instance).
+   */
+  createServer(businessId: number, jwtToken: string, defaultAgentId = ''): Server {
     const client = new AdeptosApiClient({
       accessToken: jwtToken,
       baseUrl: config.adeptosApiBaseUrl,
@@ -52,7 +55,7 @@ export class McpService {
       new CalendarTools(calendarController, businessId),
       new OpportunityTools(opportunityController, businessId),
       new ProductTools(productsController, businessId),
-      new OrderTools(orderController, businessId),
+      new OrderTools(orderController, businessId, defaultAgentId),
     ];
 
     const flatTools = providers.flatMap(p => p.getTools());
