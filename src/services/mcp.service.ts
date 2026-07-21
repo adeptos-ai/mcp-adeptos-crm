@@ -34,8 +34,13 @@ export class McpService {
     const client = new AdeptosApiClient({
       accessToken: jwtToken,
       baseUrl: config.adeptosApiBaseUrl,
+      businessId,
     });
-
+    if (jwtToken.startsWith('mcpv1.')) {
+      logger.info(
+        `[MCP] Using durable client credentials for businessId=${businessId}`
+      );
+    }
     const contactsService = new ContactsService(client);
     const contactsController = new ContactsController(contactsService);
     

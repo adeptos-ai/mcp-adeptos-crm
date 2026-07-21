@@ -20,19 +20,45 @@ import {
 } from '../types/schemas/order.js';
 import { logger } from '../utils/logger.js';
 
+/** Packed durable credentials: mcpv1.<client_id>.<client_secret> */
+function parseMcpAccessToken(
+  token: string
+): { clientId: string; clientSecret: string } | null {
+  const raw = (token || '').trim();
+  if (!raw.startsWith('mcpv1.')) return null;
+  const rest = raw.slice('mcpv1.'.length);
+  const dot = rest.indexOf('.');
+  if (dot <= 0 || dot === rest.length - 1) return null;
+  return {
+    clientId: rest.slice(0, dot),
+    clientSecret: rest.slice(dot + 1),
+  };
+}
+
 export class AdeptosApiClient {
   private axiosInstance: AxiosInstance;
 
   constructor(private config: AdeptosConfig) {
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${config.accessToken}`,
+      Cookie: `adeptosJWT=${config.accessToken}`,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    };
+    if (config.businessId && config.businessId > 0) {
+      headers['x-business-id'] = String(config.businessId);
+    }
+    // Durable MCP client_id/secret packed as mcpv1.<id>.<secret> (no browser JWT).
+    const mcpCreds = parseMcpAccessToken(config.accessToken);
+    if (mcpCreds) {
+      headers['X-MCP-Client-Id'] = mcpCreds.clientId;
+      headers['X-MCP-Client-Secret'] = mcpCreds.clientSecret;
+    }
+
     this.axiosInstance = axios.create({
       baseURL: config.baseUrl,
-      headers: {
-        'Authorization': `Bearer ${config.accessToken}`,
-        'Cookie': `adeptosJWT=${config.accessToken}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      timeout: 30000
+      headers,
+      timeout: 30000,
     });
 
     this.axiosInstance.interceptors.request.use(

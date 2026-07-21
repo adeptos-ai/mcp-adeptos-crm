@@ -1,6 +1,8 @@
 export interface AdeptosConfig {
   baseUrl: string;
   accessToken: string;
+  /** When set, sent as x-business-id (MCP client credential scope). */
+  businessId?: number;
 }
 
 export interface AdeptosApiResponse<T> {
