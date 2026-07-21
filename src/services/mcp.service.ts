@@ -21,6 +21,7 @@ import { ProductTools } from '../tools/product-tools.js';
 import { OrderService } from './order.service.js';
 import { OrderController } from '../controllers/order.controller.js';
 import { OrderTools } from '../tools/order-tools.js';
+import { HotelTools } from '../tools/hotel-tools.js';
 import { ToolProvider } from '../types/tool-provider.js';
 import { config } from '../config/env.js';
 import { logger } from '../utils/logger.js';
@@ -56,6 +57,14 @@ export class McpService {
       new OpportunityTools(opportunityController, businessId),
       new ProductTools(productsController, businessId),
       new OrderTools(orderController, businessId, defaultAgentId),
+      new HotelTools(
+        orderController,
+        productsController,
+        calendarController,
+        contactsController,
+        businessId,
+        defaultAgentId
+      ),
     ];
 
     const flatTools = providers.flatMap(p => p.getTools());

@@ -339,6 +339,9 @@ export class AdeptosApiClient {
       quantity: data.quantity,
       note: data.note ?? '',
       session_id: data.session_id ?? '',
+      check_in: data.check_in || undefined,
+      check_out: data.check_out || undefined,
+      num_guests: data.num_guests,
     };
 
     try {

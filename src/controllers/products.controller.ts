@@ -41,12 +41,20 @@ export class ProductsController {
       availability: this.formatAvailability(v.trackInventory, v.stock, v.continueSelling)
     })) || [];
 
+    const stockOk =
+      !p.trackInventory ||
+      (p.stock ?? 0) > 0 ||
+      p.continueSelling === true;
     return {
       id: p.id,
       name: p.name,
       description: p.description,
-      productType: p.productType, // DIGITAL | PHYSICAL | SERVICE
+      productType: p.productType, // DIGITAL | PHYSICAL | SERVICE | RESERVATION
       price: this.formatPrice(p.priceCents, p.currency),
+      priceCents: p.priceCents ?? 0,
+      currency: p.currency || 'USD',
+      priceUnit: p.priceUnit || null,
+      available: p.enabled === true && p.availableInStore === true && stockOk,
       availability: this.formatAvailability(p.trackInventory, p.stock, p.continueSelling),
       variants: formattedVariants,
       image: p.image || null,

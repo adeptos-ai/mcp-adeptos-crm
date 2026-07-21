@@ -1,10 +1,13 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import {
+  CheckRoomAvailabilitySchema,
   CreatePurchaseOrderSchema,
+  CreateRoomReservationSchema,
   GetPurchaseOrdersSchema,
   UpdatePurchaseOrderStatusSchema,
 } from '../schemas/order.js';
 import { OrderTools } from '../../tools/order-tools.js';
+import { HotelTools } from '../../tools/hotel-tools.js';
 import { OrderController } from '../../controllers/order.controller.js';
 
 describe('Purchase order Zod schemas', () => {
@@ -224,5 +227,68 @@ describe('OrderTools', () => {
 
     await tools.executeTool('get_purchase_orders_summary', {});
     expect(controller.handleGetPurchaseOrdersSummary).toHaveBeenCalledWith(42);
+  });
+});
+
+describe('Hotel reservation Zod schemas', () => {
+  it('requires room and stay dates for availability', () => {
+    const parsed = CheckRoomAvailabilitySchema.parse({
+      room: 'Suite Mar',
+      check_in: '2026-08-01',
+      check_out: '2026-08-03',
+    });
+    expect(parsed.room).toBe('Suite Mar');
+  });
+
+  it('requires customer_phone for create_room_reservation', () => {
+    expect(() =>
+      CreateRoomReservationSchema.parse({
+        room: '1',
+        check_in: '2026-08-01',
+        check_out: '2026-08-02',
+      })
+    ).toThrow();
+  });
+});
+
+describe('HotelTools', () => {
+  it('exposes check_room_availability and create_room_reservation', () => {
+    const tools = new HotelTools(
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      1,
+      '2'
+    ).getTools();
+    expect(tools.map((t) => t.name)).toEqual([
+      'check_room_availability',
+      'create_room_reservation',
+    ]);
+  });
+
+  it('returns unavailable when product lookup finds nothing', async () => {
+    const productsController = {
+      handleCheckAvailability: vi.fn().mockResolvedValue({
+        success: true,
+        products: [],
+        message: 'not found',
+      }),
+    };
+    const hotel = new HotelTools(
+      {} as any,
+      productsController as any,
+      {} as any,
+      {} as any,
+      7,
+      '2'
+    );
+    const result = (await hotel.executeTool('check_room_availability', {
+      room: 'Ghost',
+      check_in: '2026-08-01',
+      check_out: '2026-08-03',
+    })) as any;
+    expect(result.success).toBe(false);
+    expect(result.available).toBe(false);
   });
 });

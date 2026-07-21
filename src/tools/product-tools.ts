@@ -19,8 +19,8 @@ export class ProductTools implements ToolProvider {
             search: { type: 'string', description: 'Search term to filter by name or description' },
             productType: { 
               type: 'string', 
-              enum: ['DIGITAL', 'PHYSICAL', 'SERVICE'], 
-              description: 'Filter by product type (DIGITAL, PHYSICAL, or SERVICE)' 
+              enum: ['DIGITAL', 'PHYSICAL', 'SERVICE', 'RESERVATION'], 
+              description: 'Filter by product type (DIGITAL, PHYSICAL, SERVICE, or RESERVATION for hotel rooms)' 
             },
             collectionId: { type: 'integer', description: 'Filter by collection ID' },
             limit: { type: 'integer', description: 'Maximum number of products to return (default 50)' },
