@@ -41,10 +41,17 @@ export class ProductsController {
       availability: this.formatAvailability(v.trackInventory, v.stock, v.continueSelling)
     })) || [];
 
+    const isReservation =
+      String(p.productType || '').toUpperCase() === 'RESERVATION';
     const stockOk =
       !p.trackInventory ||
       (p.stock ?? 0) > 0 ||
       p.continueSelling === true;
+    // RESERVATION units are booked via calendar, not the public storefront —
+    // do not require availableInStore (many hotels leave that off).
+    const available = isReservation
+      ? p.enabled === true
+      : p.enabled === true && p.availableInStore === true && stockOk;
     return {
       id: p.id,
       name: p.name,
@@ -54,12 +61,21 @@ export class ProductsController {
       priceCents: p.priceCents ?? 0,
       currency: p.currency || 'USD',
       priceUnit: p.priceUnit || null,
-      available: p.enabled === true && p.availableInStore === true && stockOk,
+      available,
+      availableInStore: p.availableInStore === true,
+      enabled: p.enabled === true,
       availability: this.formatAvailability(p.trackInventory, p.stock, p.continueSelling),
       variants: formattedVariants,
       image: p.image || null,
       slug: p.slug
     };
+  }
+
+  /** Soft filter: enabled products. RESERVATION ignores availableInStore. */
+  private isBookableProduct(p: any): boolean {
+    if (p.enabled !== true) return false;
+    if (String(p.productType || '').toUpperCase() === 'RESERVATION') return true;
+    return p.availableInStore === true;
   }
 
   async handleGetProducts(
@@ -68,13 +84,15 @@ export class ProductsController {
   ) {
     logger.info(`[ProductsController] getProducts called for businessId: ${businessId}`, filters);
     
-    const response = await this.service.getProducts(businessId, filters);
+    const response = await this.service.getProducts(businessId, {
+      ...filters,
+      limit: filters?.limit ?? 200,
+    });
     if (response.success && response.data?.result?.result) {
-      // Filter available and enabled products only, as per plan
       const filtered = response.data.result.result
-        .filter((p: any) => p.enabled === true && p.availableInStore === true)
+        .filter((p: any) => this.isBookableProduct(p))
         .map((p: any) => this.mapProduct(p));
-        
+
       return {
         success: true,
         data: filtered,
@@ -114,24 +132,27 @@ export class ProductsController {
     // If nameOrId is a number or can be parsed as a number, we can search by ID. Otherwise search by name.
     const isId = typeof nameOrId === 'number' || !isNaN(Number(nameOrId));
     
-    const filters: any = {};
+    const filters: any = { limit: 200 };
     if (!isId) {
       filters.search = nameOrId.toString();
     }
-    
+
     const response = await this.service.getProducts(businessId, filters);
     if (response.success && response.data?.result?.result) {
       let matched = response.data.result.result;
-      
+
       if (isId) {
         const idNum = Number(nameOrId);
         matched = matched.filter((p: any) => p.id === idNum);
       }
-      
-      // Filter out disabled/not in store
-      const activeMatched = matched.filter((p: any) => p.enabled === true && p.availableInStore === true);
 
-      // Prefer exact name over ILIKE false-positives ("DOBLE 1" vs "DOBLE 10")
+      const beforeFilter = matched.length;
+      const activeMatched = matched.filter((p: any) => this.isBookableProduct(p));
+      logger.info(
+        `[ProductsController] checkAvailability raw=${beforeFilter} bookable=${activeMatched.length} ` +
+          `(dropped store/disabled=${beforeFilter - activeMatched.length}) for "${nameOrId}"`
+      );
+
       const normalize = (v: string) =>
         String(v || '')
           .normalize('NFD')
@@ -146,7 +167,6 @@ export class ProductsController {
         const aExact = aKey === key ? 0 : 1;
         const bExact = bKey === key ? 0 : 1;
         if (aExact !== bExact) return aExact - bExact;
-        // Prefer names that don't continue with extra digits after a trailing number in the query
         const m = key.match(/^(.*?)(\d+)$/);
         if (m) {
           const re = new RegExp(
@@ -158,7 +178,7 @@ export class ProductsController {
         }
         return aKey.length - bKey.length;
       });
-      
+
       if (activeMatched.length === 0) {
         return {
           success: true,
@@ -166,14 +186,14 @@ export class ProductsController {
           products: []
         };
       }
-      
+
       const mapped = activeMatched.map((p: any) => this.mapProduct(p));
       return {
         success: true,
         products: mapped
       };
     }
-    
+
     return response;
   }
 }

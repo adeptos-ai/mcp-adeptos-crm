@@ -227,13 +227,66 @@ export class HotelTools implements ToolProvider {
 
   /**
    * Find a free RESERVATION unit that has a linked calendar.
-   * Tries every matching product (doble 1, 2, …) — not only the first search hit.
+   * Primary source of truth = calendars with productItemId (dashboard link),
+   * not the storefront availableInStore flag.
    */
   private async resolveBookableUnit(
     roomRef: string | number,
     checkIn: string,
     checkOut: string
   ) {
+    const calendarsRes = await this.calendarController.handleGetCalendars(
+      this.businessId
+    );
+    const calendars = unwrapList(calendarsRes);
+    const appsRes = await this.calendarController.handleGetAppointments(
+      this.businessId
+    );
+    const appointments = unwrapList(appsRes);
+
+    logger.info(
+      `[HotelTools] resolveBookableUnit room="${roomRef}" calendars=${calendars.length} appointments=${appointments.length}`
+    );
+
+    const key =
+      typeof roomRef === 'string' && Number.isNaN(Number(roomRef))
+        ? normalizeRoomKey(roomRef)
+        : '';
+    const idNum =
+      typeof roomRef === 'number' || !Number.isNaN(Number(roomRef))
+        ? Number(roomRef)
+        : NaN;
+
+    // Calendars that look like this room/type (by productItemId or name).
+    const candidateCals = calendars
+      .filter((cal: any) => {
+        if (cal.enabled === false) return false;
+        const pid = Number(cal.productItemId ?? cal.product_item_id ?? 0);
+        const calKey = normalizeRoomKey(cal.name || '');
+        if (!Number.isNaN(idNum) && pid === idNum) return true;
+        if (!key) return pid > 0;
+        if (calKey === key) return true;
+        // "familiar" matches "habitacion familiar 1"…"6"; avoid "1"→"10"
+        const m = key.match(/^(.*?)(\d+)$/);
+        if (m) {
+          const re = new RegExp(
+            `${m[1].trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*${m[2]}(?!\\d)`
+          );
+          return re.test(calKey);
+        }
+        return calKey.includes(key) || key.includes(calKey);
+      })
+      .sort((a: any, b: any) =>
+        normalizeRoomKey(a.name).localeCompare(normalizeRoomKey(b.name))
+      );
+
+    logger.info(
+      `[HotelTools] candidate calendars for "${roomRef}": ${candidateCals.length} → ${candidateCals
+        .map((c: any) => `${c.id}:${c.name}:pid=${c.productItemId ?? c.product_item_id}`)
+        .join(', ')}`
+    );
+
+    // Also try product catalog (enabled RESERVATION; store flag ignored).
     const productResult = await this.productsController.handleCheckAvailability(
       this.businessId,
       roomRef
@@ -242,7 +295,6 @@ export class HotelTools implements ToolProvider {
       ? (productResult as any).products
       : [];
 
-    // Broaden type searches ("doble" / "familiar") across all RESERVATION products.
     if (
       products.length < 2 &&
       typeof roomRef === 'string' &&
@@ -251,17 +303,14 @@ export class HotelTools implements ToolProvider {
       try {
         const allRes = await this.productsController.handleGetProducts(
           this.businessId,
-          { productType: 'RESERVATION' }
+          { productType: 'RESERVATION', limit: 200 }
         );
         const all = Array.isArray((allRes as any)?.data)
           ? (allRes as any).data
-          : Array.isArray((allRes as any)?.products)
-            ? (allRes as any).products
-            : unwrapList(allRes);
-        const key = normalizeRoomKey(roomRef);
+          : unwrapList(allRes);
         const extra = all.filter((p: any) => {
           const n = normalizeRoomKey(p.name || '');
-          return n.includes(key) || key.includes(n);
+          return !key || n.includes(key) || key.includes(n);
         });
         const byId = new Map<number, any>();
         for (const p of [...products, ...extra]) {
@@ -273,50 +322,77 @@ export class HotelTools implements ToolProvider {
       }
     }
 
-    if (products.length === 0) {
-      return {
-        available: false as const,
-        error:
-          (productResult as any)?.message ||
-          `Room/product not found: ${roomRef}`,
-        productsTried: 0,
-      };
-    }
-
-    const calendarsRes = await this.calendarController.handleGetCalendars(
-      this.businessId
+    logger.info(
+      `[HotelTools] products matched=${products.length} for "${roomRef}"`
     );
-    const calendars = unwrapList(calendarsRes);
-    const appsRes = await this.calendarController.handleGetAppointments(
-      this.businessId
+
+    const productById = new Map<number, any>(
+      products.map((p: any) => [Number(p.id), p])
     );
-    const appointments = unwrapList(appsRes);
 
-    const ranked = rankProducts(products, roomRef);
-    const linkedBusy: Array<{ product: any; conflicts: number }> = [];
+    const linkedBusy: Array<{ product: any; calendar: any; conflicts: number }> =
+      [];
 
-    for (const product of ranked) {
-      if (product.available === false) continue;
-      const linked = this.calendarsForProduct(calendars, product);
-      if (linked.length === 0) {
-        logger.info(
-          `[HotelTools] product id=${product.id} "${product.name}" has no linked calendar — skip`
+    // Prefer free calendars that match the request.
+    for (const calendar of candidateCals) {
+      const pid = Number(calendar.productItemId ?? calendar.product_item_id ?? 0);
+      let product =
+        (pid > 0 ? productById.get(pid) : null) ||
+        products.find(
+          (p: any) =>
+            normalizeRoomKey(p.name) === normalizeRoomKey(calendar.name || '')
         );
-        continue;
+
+      // Synthesize minimal product from calendar link if catalog search missed it.
+      if (!product && pid > 0) {
+        product = {
+          id: pid,
+          name: calendar.name,
+          productType: 'RESERVATION',
+          priceCents: 0,
+          currency: 'COP',
+          available: true,
+        };
       }
-      const linkedIds = new Set(
-        linked.map((c: any) => Number(c.id)).filter(Boolean)
-      );
+      if (!product) continue;
+
       const conflicts = this.countStayConflicts(
         appointments,
-        linkedIds,
+        new Set([Number(calendar.id)]),
         checkIn,
         checkOut
       );
       if (conflicts === 0) {
         logger.info(
-          `[HotelTools] free unit id=${product.id} "${product.name}" calendar=${linked[0].id}`
+          `[HotelTools] free unit id=${product.id} "${product.name}" calendar=${calendar.id}`
         );
+        return {
+          available: true as const,
+          product,
+          calendar,
+          linkedCalendars: 1,
+          productsTried: Math.max(products.length, candidateCals.length),
+          conflictingAppointments: 0,
+        };
+      }
+      linkedBusy.push({ product, calendar, conflicts });
+    }
+
+    // Fallback: product → calendar (old path) if name match on calendars failed.
+    const ranked = rankProducts(products, roomRef);
+    for (const product of ranked) {
+      const linked = this.calendarsForProduct(calendars, product);
+      if (linked.length === 0) continue;
+      if (candidateCals.some((c: any) => Number(c.id) === Number(linked[0].id))) {
+        continue; // already evaluated
+      }
+      const conflicts = this.countStayConflicts(
+        appointments,
+        new Set(linked.map((c: any) => Number(c.id)).filter(Boolean)),
+        checkIn,
+        checkOut
+      );
+      if (conflicts === 0) {
         return {
           available: true as const,
           product,
@@ -326,7 +402,7 @@ export class HotelTools implements ToolProvider {
           conflictingAppointments: 0,
         };
       }
-      linkedBusy.push({ product, conflicts });
+      linkedBusy.push({ product, calendar: linked[0], conflicts });
     }
 
     if (linkedBusy.length > 0) {
@@ -334,8 +410,8 @@ export class HotelTools implements ToolProvider {
       return {
         available: false as const,
         product: best.product,
-        linkedCalendars: 1,
-        productsTried: ranked.length,
+        linkedCalendars: linkedBusy.length,
+        productsTried: Math.max(products.length, candidateCals.length),
         conflictingAppointments: best.conflicts,
         error: `No free unit for "${roomRef}" between ${checkIn} and ${checkOut} (${linkedBusy.length} linked unit(s) busy).`,
       };
@@ -343,11 +419,12 @@ export class HotelTools implements ToolProvider {
 
     return {
       available: false as const,
-      productsTried: ranked.length,
-      linkedCalendars: 0,
+      productsTried: products.length,
+      linkedCalendars: candidateCals.length,
       error:
-        `No calendar linked to RESERVATION products matching "${roomRef}". ` +
-        `In Calendarios, set "Producto / servicio vinculado" on each unit calendar.`,
+        candidateCals.length === 0 && products.length === 0
+          ? `No se encontró producto/calendario para "${roomRef}". Verifica nombres y vínculo producto↔calendario.`
+          : `No calendar linked to RESERVATION products matching "${roomRef}". In Calendarios, set "Producto / servicio vinculado" on each unit.`,
     };
   }
 
