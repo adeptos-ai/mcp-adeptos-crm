@@ -130,6 +130,34 @@ export class ProductsController {
       
       // Filter out disabled/not in store
       const activeMatched = matched.filter((p: any) => p.enabled === true && p.availableInStore === true);
+
+      // Prefer exact name over ILIKE false-positives ("DOBLE 1" vs "DOBLE 10")
+      const normalize = (v: string) =>
+        String(v || '')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+          .replace(/\s+/g, ' ')
+          .trim();
+      const key = normalize(String(nameOrId));
+      activeMatched.sort((a: any, b: any) => {
+        const aKey = normalize(a.name);
+        const bKey = normalize(b.name);
+        const aExact = aKey === key ? 0 : 1;
+        const bExact = bKey === key ? 0 : 1;
+        if (aExact !== bExact) return aExact - bExact;
+        // Prefer names that don't continue with extra digits after a trailing number in the query
+        const m = key.match(/^(.*?)(\d+)$/);
+        if (m) {
+          const re = new RegExp(
+            `^${m[1].trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*${m[2]}(?!\\d)`
+          );
+          const aBound = re.test(aKey) ? 0 : 1;
+          const bBound = re.test(bKey) ? 0 : 1;
+          if (aBound !== bBound) return aBound - bBound;
+        }
+        return aKey.length - bKey.length;
+      });
       
       if (activeMatched.length === 0) {
         return {

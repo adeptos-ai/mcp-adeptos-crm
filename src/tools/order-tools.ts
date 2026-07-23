@@ -23,11 +23,11 @@ export class OrderTools implements ToolProvider {
       {
         name: 'create_purchase_order',
         description:
-          'Register a customer purchase/reservation intent for a product. ' +
-          'Use when the customer confirms they want to buy or reserve something. ' +
-          'Requires customer_phone and product (id, slug or name). ' +
-          'agent_id is optional (Path of this agent); the MCP session already scopes the business. ' +
-          'Duplicates within 24h for the same phone+product refresh the existing open order.',
+          'Register a customer purchase intent for DIGITAL, PHYSICAL or SERVICE products (quantity = units bought). ' +
+          'For products of type RESERVATION with check-in/check-out dates, prefer create_room_reservation instead (that tool sets quantity = nights and books the linked calendar). ' +
+          'Requires customer_phone and product (id, slug or name). agent_id is optional. ' +
+          'Duplicates within 24h for the same phone+product refresh the existing open order. ' +
+          'Do not hand off to a human to create an order — call this tool.',
         inputSchema: zodToJsonSchema(CreatePurchaseOrderToolSchema) as any,
       },
       {

@@ -49,6 +49,51 @@ function unwrapEntity(res: any): any {
   return res;
 }
 
+/** Normalize for name matching: lower case, strip accents, collapse spaces. */
+function normalizeRoomKey(value: string): string {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Search "HABITACIÓN DOBLE 1" can also return "… DOBLE 10/11".
+ * Prefer exact name / slug, then name that equals ignoring accents, then id.
+ */
+function pickBestProduct(products: any[], roomRef: string | number): any {
+  if (!products.length) return null;
+  if (typeof roomRef === 'number' || !Number.isNaN(Number(roomRef))) {
+    const idNum = Number(roomRef);
+    const byId = products.find((p) => Number(p.id) === idNum);
+    if (byId) return byId;
+  }
+  const key = normalizeRoomKey(String(roomRef));
+  const exact = products.find((p) => normalizeRoomKey(p.name) === key);
+  if (exact) return exact;
+  const bySlug = products.find(
+    (p) => p.slug && normalizeRoomKey(p.slug) === key
+  );
+  if (bySlug) return bySlug;
+  // Avoid "doble 1" matching "doble 10": require full token boundary on trailing number
+  const bounded = products.find((p) => {
+    const n = normalizeRoomKey(p.name);
+    if (n === key) return true;
+    // if key ends with a number, name must not have extra digits after it
+    const m = key.match(/^(.*?)(\d+)$/);
+    if (!m) return n.includes(key);
+    const prefix = m[1].trim();
+    const num = m[2];
+    const re = new RegExp(
+      `^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*${num}(?!\\d)`
+    );
+    return re.test(n);
+  });
+  return bounded || products[0];
+}
+
 export class HotelTools implements ToolProvider {
   constructor(
     private orderController: OrderController,
@@ -64,16 +109,20 @@ export class HotelTools implements ToolProvider {
       {
         name: 'check_room_availability',
         description:
-          'Check if a RESERVATION product (room, space, rental, etc.) is available between start and end dates (YYYY-MM-DD). ' +
-          'Uses product catalog + linked calendar appointments when present.',
+          'For products of type RESERVATION only (hotel room, cabin, rental space, court, etc.): check availability between check_in and check_out (YYYY-MM-DD). ' +
+          'Pass the exact product id or exact name from get_products (avoid short names like "doble 1" that also match "doble 10"). ' +
+          'Do not use for DIGITAL/PHYSICAL/SERVICE products — use create_purchase_order instead. ' +
+          'Never hand off to a human just to check availability; call this tool.',
         inputSchema: zodToJsonSchema(CheckRoomAvailabilitySchema) as any,
       },
       {
         name: 'create_room_reservation',
         description:
-          'Create a RESERVATION booking: upserts contact, creates purchase order with stay/booking dates, ' +
-          'and books the linked calendar for that window. ' +
-          'Call check_room_availability first. Only confirm the booking if this tool succeeds.',
+          'For RESERVATION products only: create contact + purchase order + calendar appointment for a date range. ' +
+          'num_guests = number of people (optional). Purchase-order quantity is set automatically to nights (check_out - check_in), NOT guests. ' +
+          'Pass exact product id/name from get_products. Call check_room_availability first. ' +
+          'If the order is created but calendar linking fails, tell the customer the request was registered (order id) — do NOT invent a confirmed calendar booking and do NOT escalate to a human for that technical detail unless tools are unavailable. ' +
+          'For non-RESERVATION products use create_purchase_order.',
         inputSchema: zodToJsonSchema(CreateRoomReservationSchema) as any,
       },
     ];
@@ -113,12 +162,35 @@ export class HotelTools implements ToolProvider {
       this.businessId
     );
     const calendars = unwrapList(calendarsRes);
-    return calendars.filter((cal: any) => {
+    const productId = Number(product?.id || 0);
+    const productKey = normalizeRoomKey(product?.name || '');
+
+    const byProductId = calendars.filter((cal: any) => {
       const pid = cal.productItemId ?? cal.product_item_id;
-      if (pid && product.id && Number(pid) === Number(product.id)) return true;
-      const name = String(cal.name || '').toLowerCase();
-      const productName = String(product.name || '').toLowerCase();
-      return productName && name.includes(productName);
+      return productId > 0 && pid != null && Number(pid) === productId;
+    });
+    if (byProductId.length > 0) return byProductId;
+
+    // Fallback: exact calendar name === product name (accents-insensitive)
+    const byExactName = calendars.filter((cal: any) => {
+      const calKey = normalizeRoomKey(cal.name || '');
+      return productKey && calKey === productKey;
+    });
+    if (byExactName.length > 0) return byExactName;
+
+    // Last resort: calendar name contains full product name (still exact key, not prefix of another unit)
+    return calendars.filter((cal: any) => {
+      const calKey = normalizeRoomKey(cal.name || '');
+      if (!productKey || !calKey.includes(productKey)) return false;
+      // reject if product is "... 1" and calendar is "... 10"
+      const m = productKey.match(/^(.*?)(\d+)$/);
+      if (!m) return true;
+      const prefix = m[1].trim();
+      const num = m[2];
+      const re = new RegExp(
+        `${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*${num}(?!\\d)`
+      );
+      return re.test(calKey);
     });
   }
 
@@ -152,7 +224,17 @@ export class HotelTools implements ToolProvider {
       };
     }
 
-    const product = products[0];
+    const product = pickBestProduct(products, valid.room);
+    if (!product) {
+      return {
+        success: false,
+        available: false,
+        error: { message: `Room/product not found: ${valid.room}` },
+      };
+    }
+    logger.info(
+      `[HotelTools] resolved room "${valid.room}" → id=${product.id} name=${product.name} (candidates=${products.length})`
+    );
     if (
       product.productType &&
       String(product.productType).toUpperCase() !== 'RESERVATION'
@@ -164,8 +246,10 @@ export class HotelTools implements ToolProvider {
 
     let calendarConflict = false;
     let conflictingAppointments = 0;
+    let linkedCount = 0;
     try {
       const linked = await this.findLinkedCalendars(product);
+      linkedCount = linked.length;
       if (linked.length > 0) {
         const appsRes = await this.calendarController.handleGetAppointments(
           this.businessId
@@ -214,6 +298,7 @@ export class HotelTools implements ToolProvider {
       check_out: valid.check_out,
       nights,
       totalCents,
+      linkedCalendars: linkedCount,
       conflictingAppointments,
       message: available
         ? `Disponible ${nights} día(s). Total estimado: ${totalCents / 100} ${product.currency || 'USD'}.`
@@ -289,16 +374,20 @@ export class HotelTools implements ToolProvider {
       valid.note,
       `Inicio: ${valid.check_in}`,
       `Fin: ${valid.check_out}`,
+      `Noches: ${nights}`,
       valid.num_guests ? `Personas: ${valid.num_guests}` : '',
-      `Días: ${nights}`,
     ].filter(Boolean);
+
+    // Prefer resolved product id so API search cannot pick "DOBLE 10" for "DOBLE 1"
+    const productRef =
+      roomMeta?.id != null ? String(roomMeta.id) : String(valid.room);
 
     const orderRes = await this.orderController.handleCreatePurchaseOrder({
       agent_id: agentId,
       business_id: this.businessId,
       customer_phone: valid.customer_phone,
       customer_name: customerName,
-      product: valid.room,
+      product: productRef,
       variant: valid.variant || '',
       quantity: nights,
       note: noteParts.join(' | '),
@@ -354,19 +443,31 @@ export class HotelTools implements ToolProvider {
       logger.warn('[HotelTools] create appointment failed', err);
     }
 
+    const order = (orderRes as any).order;
+    const orderId = order?.id;
+    // Order + contact are the business-critical write. Calendar is best-effort.
+    // Mark success=true when the order exists so the agent does not invent a human handoff.
     return {
-      success: !appointmentError,
+      success: true,
+      calendarBooked: !appointmentError,
+      partial: Boolean(appointmentError),
       message: appointmentError
-        ? `Orden creada, pero falló la reserva en calendario: ${appointmentError}`
-        : 'Reserva creada: contacto + orden de compra + cita en calendario.',
+        ? `Solicitud registrada (orden #${orderId ?? '?'}): contacto + orden OK. Calendario no bloqueado (${appointmentError}). ` +
+          `Informa al cliente que la solicitud quedó registrada con ${nights} noche(s)` +
+          (valid.num_guests ? ` y ${valid.num_guests} persona(s)` : '') +
+          `. No digas que un asesor humano debe finalizar la reserva por un detalle técnico; reintenta con el id exacto del producto si hace falta.`
+        : `Reserva creada: contacto + orden #${orderId ?? ''} + cita en calendario (${nights} noche(s)` +
+          (valid.num_guests ? `, ${valid.num_guests} persona(s)` : '') +
+          ').',
       nights,
+      num_guests: valid.num_guests ?? null,
       check_in: valid.check_in,
       check_out: valid.check_out,
       room: roomMeta,
       contact,
-      order: (orderRes as any).order,
+      order,
       appointment,
-      error: appointmentError ? { message: appointmentError } : undefined,
+      warning: appointmentError ? { message: appointmentError } : undefined,
     };
   }
 }
