@@ -19,7 +19,10 @@ export class ContactTools implements ToolProvider {
       },
       {
         name: 'create_contact',
-        description: 'Create a new contact or lead.',
+        description:
+          'Create a contact/lead in the CRM as soon as you have name and phone (and email if available). ' +
+          'Do this during a booking conversation — do not wait for a human advisor. ' +
+          'For RESERVATION bookings, create_room_reservation also creates the contact; calling this earlier is still recommended.',
         inputSchema: zodToJsonSchema(CreateContactSchema) as any
       },
       {

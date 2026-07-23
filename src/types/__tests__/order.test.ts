@@ -274,6 +274,10 @@ describe('HotelTools', () => {
         products: [],
         message: 'not found',
       }),
+      handleGetProducts: vi.fn().mockResolvedValue({
+        success: true,
+        data: [],
+      }),
     };
     const hotel = new HotelTools(
       {} as any,

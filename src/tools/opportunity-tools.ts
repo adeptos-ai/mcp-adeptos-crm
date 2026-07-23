@@ -24,7 +24,10 @@ export class OpportunityTools implements ToolProvider {
       },
       {
         name: 'create_opportunity',
-        description: 'Create a new opportunity in a pipeline.',
+        description:
+          'Create a sales/booking opportunity in a pipeline stage when the customer shows intent to buy or reserve. ' +
+          'Use after (or with) contact data. For RESERVATION flows, create this before or right after create_room_reservation. ' +
+          'Do not skip this to hand off to a human.',
         inputSchema: zodToJsonSchema(CreateOpportunitySchema) as any
       },
       {

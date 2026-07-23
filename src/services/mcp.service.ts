@@ -78,7 +78,27 @@ export class McpService {
       { name: "mcp-adeptos-crm", version: "1.0.0" },
       {
         capabilities: { tools: {} },
-        instructions: "Adeptos CRM server.",
+        instructions: [
+          'Adeptos CRM MCP. You MUST use these tools to write CRM data — never invent IDs, prices, or say a human will finish the booking when tools are available.',
+          '',
+          'PRODUCT TYPES:',
+          '- RESERVATION (rooms, cabins, rentals, spaces with dates): use check_room_availability then create_room_reservation (creates contact + purchase order + calendar). Prefer exact product id from get_products.',
+          '- DIGITAL / PHYSICAL / SERVICE: use create_purchase_order (quantity = units). Optionally create_contact + create_opportunity.',
+          '',
+          'RESERVATION BOOKING FLOW (when customer wants to book and you have name, phone, dates, guests):',
+          '1) get_products (productType=RESERVATION) → pick exact unit/product id',
+          '2) check_room_availability(room=id or exact name, check_in, check_out YYYY-MM-DD)',
+          '3) get_pipelines → create_opportunity (link contact if you already created one)',
+          '4) create_room_reservation(room, dates, num_guests, customer_name, customer_phone, customer_email)',
+          '5) Optionally move_opportunity to the booked/won stage',
+          '',
+          'create_room_reservation already upserts the contact — you do not need a separate create_contact first, but creating the contact early when you have phone/email is fine.',
+          'Purchase-order quantity for RESERVATION = nights (check_out - check_in), NOT number of guests. Guests go in num_guests.',
+          '',
+          'NEVER hand off to a human to: check availability, create contact, create opportunity, create order, or book calendar.',
+          'Only suggest a human if tools return hard failures repeatedly, payment must be taken offline by policy, or the customer explicitly asks for a person.',
+          'Seasonal tariffs / club discounts: quote from your prompt or product price; do not block the CRM write on that.',
+        ].join('\n'),
       },
     );
 
