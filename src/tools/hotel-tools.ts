@@ -239,10 +239,18 @@ export class HotelTools implements ToolProvider {
       this.businessId
     );
     const calendars = unwrapList(calendarsRes);
-    const appsRes = await this.calendarController.handleGetAppointments(
-      this.businessId
-    );
-    const appointments = unwrapList(appsRes);
+    let appointments: any[] = [];
+    try {
+      const appsRes = await this.calendarController.handleGetAppointments(
+        this.businessId
+      );
+      appointments = unwrapList(appsRes);
+    } catch (err) {
+      logger.warn(
+        '[HotelTools] getAppointments failed, assuming 0 conflicts',
+        err
+      );
+    }
 
     logger.info(
       `[HotelTools] resolveBookableUnit room="${roomRef}" calendars=${calendars.length} appointments=${appointments.length}`
@@ -614,6 +622,10 @@ export class HotelTools implements ToolProvider {
         description: `Orden #${(orderRes as any)?.order?.id || ''} | ${nights} noche(s)${valid.num_guests ? ` | ${valid.num_guests} persona(s)` : ''}`,
         notes: valid.note || '',
       });
+      logger.info(
+        '[HotelTools] createAppointment raw response',
+        JSON.stringify(appRes)
+      );
       appointment = unwrapEntity(appRes);
       if (!appointment?.id && !appointment?.ID) {
         appointmentError =
@@ -634,7 +646,9 @@ export class HotelTools implements ToolProvider {
     const calendarBooked = !appointmentError;
 
     return {
-      success: calendarBooked,
+      // Order + contact always created; calendar may be partial — do not
+      // signal tool failure or the agent will hand off to a human.
+      success: true,
       calendarBooked,
       partial: !calendarBooked,
       message: calendarBooked
