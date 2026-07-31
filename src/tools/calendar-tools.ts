@@ -24,8 +24,12 @@ export class CalendarTools implements ToolProvider {
       },
       {
         name: 'create_appointment',
-        description: 'Create a new appointment.',
-        inputSchema: zodToJsonSchema(CreateAppointmentSchema) as any
+        description:
+          'Book an appointment on a calendar. Times accept "YYYY-MM-DDTHH:mm" ' +
+          '(read in the business timezone) or an ISO string with offset such as ' +
+          '"2026-08-01T10:00:00-05:00". A phone number is enough; email is optional.',
+        // $refs would make endTime point at startTime, which models handle badly
+        inputSchema: zodToJsonSchema(CreateAppointmentSchema, { $refStrategy: 'none' }) as any
       },
       {
         name: 'update_appointment',
@@ -34,7 +38,8 @@ export class CalendarTools implements ToolProvider {
           type: 'object',
           properties: {
             app_id: { type: 'integer', description: 'Appointment ID' },
-            ...((zodToJsonSchema(UpdateAppointmentSchema) as any).properties || {})
+            ...((zodToJsonSchema(UpdateAppointmentSchema, { $refStrategy: 'none' }) as any)
+              .properties || {})
           },
           required: ['app_id']
         }
