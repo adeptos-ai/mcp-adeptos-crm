@@ -33,4 +33,9 @@ export class OpportunityController {
     logger.info(`[OpportunityController] deleteOpportunity called for oppId: ${oppId}`);
     return this.service.deleteOpportunity(oppId, businessId);
   }
+
+  async handleCreateOpportunityNote(businessId: number, oppId: number, content: string) {
+    logger.info(`[OpportunityController] createOpportunityNote called for oppId: ${oppId}`);
+    return this.service.createOpportunityNote(businessId, oppId, content);
+  }
 }

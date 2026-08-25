@@ -1,7 +1,7 @@
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { ToolProvider } from '../types/tool-provider.js';
 import { OpportunityController } from '../controllers/opportunity.controller.js';
-import { CreateOpportunitySchema, UpdateOpportunitySchema, MoveOpportunitySchema } from '../types/schemas/opportunities.js';
+import { CreateOpportunitySchema, UpdateOpportunitySchema, MoveOpportunitySchema, CreateOpportunityNoteSchema } from '../types/schemas/opportunities.js';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 
 export class OpportunityTools implements ToolProvider {
@@ -62,6 +62,14 @@ export class OpportunityTools implements ToolProvider {
           properties: { opp_id: { type: 'integer', description: 'Opportunity ID' } },
           required: ['opp_id']
         }
+      },
+      {
+        name: 'create_opportunity_note',
+        description:
+          'Add a detailed note to an existing opportunity. ' +
+          'Call this immediately after create_opportunity. ' +
+          'Include: what the customer wants, dates/prices mentioned, next steps, and any relevant context from the conversation.',
+        inputSchema: zodToJsonSchema(CreateOpportunityNoteSchema) as any
       }
     ];
   }
@@ -89,6 +97,14 @@ export class OpportunityTools implements ToolProvider {
       case 'delete_opportunity':
         if (!params.opp_id) throw new Error("opp_id is required");
         return await this.controller.handleDeleteOpportunity(params.opp_id, this.businessId);
+      case 'create_opportunity_note': {
+        const validParams = CreateOpportunityNoteSchema.parse(params);
+        return await this.controller.handleCreateOpportunityNote(
+          this.businessId,
+          validParams.opp_id,
+          validParams.content
+        );
+      }
       default:
         throw new Error(`Unknown tool: ${toolName}`);
     }

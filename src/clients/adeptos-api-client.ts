@@ -296,6 +296,22 @@ export class AdeptosApiClient {
     }
   }
 
+  async createOpportunityNote(
+    businessId: number,
+    oppId: number,
+    content: string
+  ): Promise<AdeptosApiResponse<any>> {
+    try {
+      const response: AxiosResponse<any> = await this.axiosInstance.post(
+        `/api/v1/opportunity/${oppId}/notes?businessId=${businessId}`,
+        { content }
+      );
+      return this.wrapResponse(response.data);
+    } catch (error) {
+      throw error;
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // PRODUCTS
   // ---------------------------------------------------------------------------

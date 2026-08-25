@@ -27,4 +27,8 @@ export class OpportunityService {
   async deleteOpportunity(oppId: number, businessId: number) {
     return this.client.deleteOpportunity(oppId, businessId);
   }
+
+  async createOpportunityNote(businessId: number, oppId: number, content: string) {
+    return this.client.createOpportunityNote(businessId, oppId, content);
+  }
 }

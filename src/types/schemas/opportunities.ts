@@ -24,3 +24,9 @@ export const MoveOpportunitySchema = z.object({
   order: z.number().optional()
 });
 export type MoveOpportunityRequest = z.infer<typeof MoveOpportunitySchema>;
+
+export const CreateOpportunityNoteSchema = z.object({
+  opp_id: z.number().int().positive(),
+  content: z.string().min(1)
+});
+export type CreateOpportunityNoteRequest = z.infer<typeof CreateOpportunityNoteSchema>;
