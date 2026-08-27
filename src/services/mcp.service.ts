@@ -12,6 +12,7 @@ import { ContactTools } from '../tools/contact-tools.js';
 import { CalendarService } from './calendar.service.js';
 import { CalendarController } from '../controllers/calendar.controller.js';
 import { CalendarTools } from '../tools/calendar-tools.js';
+import { LeadCaptureService } from './lead-capture.service.js';
 import { OpportunityService } from './opportunity.service.js';
 import { OpportunityController } from '../controllers/opportunity.controller.js';
 import { OpportunityTools } from '../tools/opportunity-tools.js';
@@ -56,19 +57,22 @@ export class McpService {
     const orderService = new OrderService(client);
     const orderController = new OrderController(orderService);
 
+    const leadCapture = new LeadCaptureService(client, businessId);
+
     const providers: ToolProvider[] = [
-      new ContactTools(contactsController, businessId),
+      new ContactTools(contactsController, businessId, leadCapture),
       new CalendarTools(calendarController, businessId),
       new OpportunityTools(opportunityController, businessId),
       new ProductTools(productsController, businessId),
-      new OrderTools(orderController, businessId, defaultAgentId),
+      new OrderTools(orderController, businessId, defaultAgentId, leadCapture),
       new HotelTools(
         orderController,
         productsController,
         calendarController,
         contactsController,
         businessId,
-        defaultAgentId
+        defaultAgentId,
+        leadCapture
       ),
     ];
 
@@ -86,9 +90,9 @@ export class McpService {
           '- DIGITAL / PHYSICAL / SERVICE: use create_purchase_order (quantity = units). Also create_contact + create_opportunity + create_opportunity_note.',
           '',
           'LEADS AND OPPORTUNITIES:',
-          '- For ANY customer interaction that shows interest (inquiry, quote, reservation intent, product question with buying signals), create an opportunity. Do not skip this even if the booking is not finalized.',
-          '- After every create_opportunity, immediately call create_opportunity_note with a detailed summary of the conversation.',
-          '- The note must be at least 3–5 sentences covering: what the customer wants, dates/prices mentioned, special requests, source/channel if known, and next steps.',
+          '- create_contact and create_purchase_order automatically create (or reuse) an opportunity and attach notes. You still MUST call them as soon as you have name + phone or name + email.',
+          '- Do not skip CRM writes because a human will finish later. The tools persist the deal even if you forget create_opportunity.',
+          '- If you also call create_opportunity / create_opportunity_note, that is fine (duplicates are reused).',
           '',
           'RESERVATION BOOKING FLOW (when customer wants to book and you have name, phone, dates, guests):',
           '1) get_products (productType=RESERVATION) → pick exact unit/product id',

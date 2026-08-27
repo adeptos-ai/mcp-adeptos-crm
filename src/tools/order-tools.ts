@@ -1,6 +1,7 @@
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { OrderController } from '../controllers/order.controller.js';
+import { LeadCaptureService } from '../services/lead-capture.service.js';
 import { ToolProvider } from '../types/tool-provider.js';
 import {
   CreatePurchaseOrderSchema,
@@ -15,7 +16,8 @@ export class OrderTools implements ToolProvider {
     private controller: OrderController,
     private businessId: number,
     /** Path / external agent id injected by demos via x-agent-id (per-agent, scalable). */
-    private defaultAgentId: string = ''
+    private defaultAgentId: string = '',
+    private leadCapture?: LeadCaptureService
   ) {}
 
   getTools(): Tool[] {
@@ -113,7 +115,22 @@ export class OrderTools implements ToolProvider {
             'agent_id or business session is required to create a purchase order'
           );
         }
-        return await this.controller.handleCreatePurchaseOrder(valid);
+        const created = await this.controller.handleCreatePurchaseOrder(valid);
+        try {
+          const order = (created as any)?.order;
+          if (order) {
+            await this.leadCapture?.afterPurchaseOrder({
+              customerPhone: order.customerPhone,
+              customerName: order.customerName,
+              productName: order.productName,
+              note: order.note,
+              quantity: order.quantity,
+            });
+          }
+        } catch {
+          // Order already created.
+        }
+        return created;
       }
       case 'get_purchase_orders': {
         const valid = GetPurchaseOrdersSchema.parse(params ?? {});

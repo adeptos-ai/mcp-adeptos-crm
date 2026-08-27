@@ -1,13 +1,15 @@
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { ToolProvider } from '../types/tool-provider.js';
 import { ContactsController } from '../controllers/contacts.controller.js';
+import { LeadCaptureService } from '../services/lead-capture.service.js';
 import { CreateContactSchema, UpdateContactSchema } from '../types/schemas/contacts.js';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 
 export class ContactTools implements ToolProvider {
   constructor(
     private controller: ContactsController,
-    private businessId: number
+    private businessId: number,
+    private leadCapture?: LeadCaptureService
   ) {}
 
   getTools(): Tool[] {
@@ -55,7 +57,14 @@ export class ContactTools implements ToolProvider {
         return await this.controller.handleGetContacts(this.businessId);
       case 'create_contact': {
         const validParams = CreateContactSchema.parse(params);
-        return await this.controller.handleCreateContact(this.businessId, validParams);
+        const created = await this.controller.handleCreateContact(this.businessId, validParams);
+        let opportunity: { opportunityId?: number } = {};
+        try {
+          opportunity = (await this.leadCapture?.afterContact(created, validParams.notes)) || {};
+        } catch {
+          // Contact write already succeeded; opportunity is best-effort.
+        }
+        return { ...((created && typeof created === 'object') ? created : { created }), opportunity };
       }
       case 'update_contact': {
         if (!params.contact_id) throw new Error("contact_id is required");

@@ -5,6 +5,7 @@ import { OrderController } from '../controllers/order.controller.js';
 import { ProductsController } from '../controllers/products.controller.js';
 import { CalendarController } from '../controllers/calendar.controller.js';
 import { ContactsController } from '../controllers/contacts.controller.js';
+import { LeadCaptureService } from '../services/lead-capture.service.js';
 import {
   CheckRoomAvailabilitySchema,
   CreateRoomReservationSchema,
@@ -115,7 +116,8 @@ export class HotelTools implements ToolProvider {
     private calendarController: CalendarController,
     private contactsController: ContactsController,
     private businessId: number,
-    private defaultAgentId: string = ''
+    private defaultAgentId: string = '',
+    private leadCapture?: LeadCaptureService
   ) {}
 
   getTools(): Tool[] {
@@ -644,6 +646,12 @@ export class HotelTools implements ToolProvider {
     const order = (orderRes as any).order;
     const orderId = order?.id;
     const calendarBooked = !appointmentError;
+
+    try {
+      await this.leadCapture?.afterContact(contact, noteParts.join('\n'));
+    } catch (err) {
+      logger.warn('[HotelTools] lead capture failed', err);
+    }
 
     return {
       // Order + contact always created; calendar may be partial — do not

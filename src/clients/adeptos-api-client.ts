@@ -113,10 +113,14 @@ export class AdeptosApiClient {
   // CONTACTS
   // ---------------------------------------------------------------------------
 
-  async getContacts(businessId: number): Promise<AdeptosApiResponse<ContactResponse[]>> {
+  async getContacts(
+    businessId: number,
+    searchTerm?: string
+  ): Promise<AdeptosApiResponse<ContactResponse[]>> {
     try {
       const response: AxiosResponse<ContactResponse[]> = await this.axiosInstance.post(
-        `/api/v1/business/${businessId}/customers`, {}
+        `/api/v1/business/${businessId}/customers`,
+        { searchTerm: searchTerm || '', paginate: false }
       );
       return this.wrapResponse(response.data);
     } catch (error) {
