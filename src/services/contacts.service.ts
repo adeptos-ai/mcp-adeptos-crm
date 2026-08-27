@@ -4,8 +4,8 @@ import { CreateContactRequest, UpdateContactRequest } from '../types/schemas/con
 export class ContactsService {
   constructor(private client: AdeptosApiClient) {}
 
-  async getContacts(businessId: number) {
-    return this.client.getContacts(businessId);
+  async getContacts(businessId: number, searchTerm?: string) {
+    return this.client.getContacts(businessId, searchTerm);
   }
 
   async createContact(businessId: number, data: CreateContactRequest) {
