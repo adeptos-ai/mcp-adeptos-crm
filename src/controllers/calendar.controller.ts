@@ -14,6 +14,11 @@ export class CalendarController {
     return this.service.getAppointments(businessId);
   }
 
+  async handleGetFreeSlots(calendarId: number, date: string) {
+    logger.info(`[CalendarController] getFreeSlots calendarId=${calendarId} date=${date}`);
+    return this.service.getFreeSlots(calendarId, date);
+  }
+
   async handleCreateAppointment(data: any) {
     logger.info(`[CalendarController] createAppointment called`, data);
     return this.service.createAppointment(data);

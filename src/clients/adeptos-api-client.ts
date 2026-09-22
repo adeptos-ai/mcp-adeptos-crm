@@ -99,6 +99,12 @@ export class AdeptosApiClient {
     } else if (typeof data?.message === 'string') {
       message = data.message;
     }
+    if (status === 409 && Array.isArray(data?.conflicts) && data.conflicts.length > 0) {
+      const summary = data.conflicts
+        .map((c: any) => `#${c.id} ${c.startTime || c.start_time}–${c.endTime || c.end_time} (${c.contactName || c.contact_name || 'busy'})`)
+        .join('; ');
+      message = `${message}: ${summary}`;
+    }
     return new Error(`Adeptos API Error (${status}): ${message}`);
   }
 
@@ -182,6 +188,29 @@ export class AdeptosApiClient {
     try {
       const response: AxiosResponse<AppointmentResponse[]> = await this.axiosInstance.get(
         `/api/v1/calendar/appointments?businessId=${businessId}`
+      );
+      return this.wrapResponse(response.data);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getCalendarAppointments(calendarId: number): Promise<AdeptosApiResponse<AppointmentResponse[]>> {
+    try {
+      const response: AxiosResponse<any> = await this.axiosInstance.get(
+        `/api/v1/calendar/${calendarId}/appointments`
+      );
+      return this.wrapResponse(response.data);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getFreeSlots(calendarId: number, date: string): Promise<AdeptosApiResponse<string[]>> {
+    try {
+      const response: AxiosResponse<any> = await this.axiosInstance.get(
+        `/api/v1/calendar/${calendarId}/slots`,
+        { params: { date } }
       );
       return this.wrapResponse(response.data);
     } catch (error) {
