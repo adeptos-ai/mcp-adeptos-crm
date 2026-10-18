@@ -9,8 +9,10 @@ Esta es una guía de referencia rápida sobre qué parámetros exactos espera re
 ## 1. Contactos (Contacts)
 
 ### `get_contacts`
-Obtiene todos los contactos/clientes potenciales.
-- **Parámetros:** `{}` (Ninguno)
+Busca contactos/clientes por nombre, teléfono o correo.
+- **Parámetros:**
+  - `search_term` (string, **requerido**): Texto a buscar (nombre, teléfono o correo del cliente). NUNCA llamar sin él.
+- **Límite:** devuelve máximo 100 resultados (`truncated: true` + `total` cuando hubo más); afina el término si el cliente no aparece.
 
 ### `create_contact`
 Crea un nuevo contacto o cliente potencial.

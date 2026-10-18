@@ -16,8 +16,21 @@ export class ContactTools implements ToolProvider {
     return [
       {
         name: 'get_contacts',
-        description: 'Get all contacts for the business.',
-        inputSchema: { type: 'object', properties: {} }
+        description:
+          'Search the business contacts by name, phone or email. ' +
+          'Always pass the customer\'s name (or phone) as search_term — never call it without one. ' +
+          'Returns the matching contacts (at most 100). ' +
+          'Use it to find a contact\'s id before update_contact, or to check if a customer already exists before create_contact.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            search_term: {
+              type: 'string',
+              description: 'Text to search for: the customer\'s name, phone or email (as the customer gave it).'
+            }
+          },
+          required: ['search_term']
+        }
       },
       {
         name: 'create_contact',
@@ -54,7 +67,10 @@ export class ContactTools implements ToolProvider {
   async executeTool(toolName: string, params: any): Promise<any> {
     switch (toolName) {
       case 'get_contacts':
-        return await this.controller.handleGetContacts(this.businessId);
+        if (!params.search_term || !String(params.search_term).trim()) {
+          throw new Error("search_term is required: pass the customer's name, phone or email");
+        }
+        return await this.controller.handleGetContacts(this.businessId, String(params.search_term).trim());
       case 'create_contact': {
         const validParams = CreateContactSchema.parse(params);
         const created = await this.controller.handleCreateContact(this.businessId, validParams);

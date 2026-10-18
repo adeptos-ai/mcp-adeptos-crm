@@ -119,6 +119,11 @@ export class AdeptosApiClient {
   // CONTACTS
   // ---------------------------------------------------------------------------
 
+  // A broad search_term must not hand the model the whole table: the runtime
+  // agent resends the tool result on every model call of its turn (a 385k-char
+  // contact dump measured 139k input tokens per call — agent 92, 2026-10-18).
+  static readonly MAX_CONTACTS = 100;
+
   async getContacts(
     businessId: number,
     searchTerm?: string
@@ -128,10 +133,24 @@ export class AdeptosApiClient {
         `/api/v1/business/${businessId}/customers`,
         { searchTerm: searchTerm || '', paginate: false }
       );
-      return this.wrapResponse(response.data);
+      return this.wrapResponse(this.capContacts(businessId, searchTerm || '', response.data));
     } catch (error) {
       throw error;
     }
+  }
+
+  private capContacts(businessId: number, searchTerm: string, body: any): any {
+    const list: any[] = Array.isArray(body) ? body : Array.isArray(body?.result) ? body.result : [];
+    const max = AdeptosApiClient.MAX_CONTACTS;
+    if (list.length <= max) return body;
+    const capped = list.slice(0, max);
+    logger.warn(
+      `[AdeptosApi] getContacts businessId=${businessId} searchTerm='${searchTerm}' ` +
+      `returned ${list.length} contacts, capped to ${max}. Tell the customer you need a more specific name.`
+    );
+    return Array.isArray(body)
+      ? capped
+      : { ...body, result: capped, truncated: true, total: list.length };
   }
 
   async createContact(businessId: number, data: CreateContactRequest): Promise<AdeptosApiResponse<ContactResponse>> {

@@ -4,9 +4,9 @@ import { logger } from '../utils/logger.js';
 export class ContactsController {
   constructor(private service: ContactsService) {}
 
-  async handleGetContacts(businessId: number) {
-    logger.info(`[ContactsController] getContacts called for businessId: ${businessId}`);
-    return this.service.getContacts(businessId);
+  async handleGetContacts(businessId: number, searchTerm?: string) {
+    logger.info(`[ContactsController] getContacts called for businessId: ${businessId}, searchTerm: ${searchTerm}`);
+    return this.service.getContacts(businessId, searchTerm);
   }
 
   async handleCreateContact(businessId: number, data: any) {
