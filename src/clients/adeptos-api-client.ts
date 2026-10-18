@@ -35,6 +35,13 @@ function parseMcpAccessToken(
   };
 }
 
+// The backend matches `searchTerm` as a substring of the stored phone, which may
+// or may not carry the country code: the last 10 digits match every format.
+export function phoneOrText(term: string): string {
+  const digits = term.replace(/\D/g, '');
+  return /^[\d\s+().-]+$/.test(term) && digits.length >= 7 ? digits.slice(-10) : term;
+}
+
 export class AdeptosApiClient {
   private axiosInstance: AxiosInstance;
 
@@ -131,7 +138,7 @@ export class AdeptosApiClient {
     try {
       const response: AxiosResponse<ContactResponse[]> = await this.axiosInstance.post(
         `/api/v1/business/${businessId}/customers`,
-        { searchTerm: searchTerm || '', paginate: false }
+        { searchTerm: phoneOrText(searchTerm || ''), paginate: false }
       );
       return this.wrapResponse(this.capContacts(businessId, searchTerm || '', response.data));
     } catch (error) {

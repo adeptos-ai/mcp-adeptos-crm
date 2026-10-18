@@ -19,8 +19,12 @@ export class OpportunityTools implements ToolProvider {
       },
       {
         name: 'get_opportunities',
-        description: 'Get all opportunities for the business.',
-        inputSchema: { type: 'object', properties: {} }
+        description: "Get one contact's opportunities.",
+        inputSchema: {
+          type: 'object',
+          properties: { contact_id: { type: 'integer', description: 'Contact ID' } },
+          required: ['contact_id']
+        }
       },
       {
         name: 'create_opportunity',
@@ -79,7 +83,8 @@ export class OpportunityTools implements ToolProvider {
       case 'get_pipelines':
         return await this.controller.handleGetPipelines(this.businessId);
       case 'get_opportunities':
-        return await this.controller.handleGetOpportunities(this.businessId);
+        if (!params.contact_id) throw new Error('contact_id is required');
+        return await this.controller.handleGetOpportunities(this.businessId, Number(params.contact_id));
       case 'create_opportunity': {
         const validParams = CreateOpportunitySchema.parse(params);
         return await this.controller.handleCreateOpportunity(this.businessId, validParams);

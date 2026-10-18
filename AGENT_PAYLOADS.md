@@ -82,8 +82,9 @@ Trae todos los embudos (Pipelines) y las Etapas (Stages) del negocio.
 - **Parámetros:** `{}` (Ninguno)
 
 ### `get_opportunities`
-Trae todas las oportunidades en el tablero.
-- **Parámetros:** `{}` (Ninguno)
+Trae las oportunidades de un contacto.
+- **Parámetros:**
+  - `contact_id` (integer, **requerido**): ID del contacto.
 
 ### `create_opportunity`
 Crea una nueva oportunidad (tarjeta en el pipeline).
