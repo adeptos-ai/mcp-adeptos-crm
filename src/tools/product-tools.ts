@@ -12,7 +12,7 @@ export class ProductTools implements ToolProvider {
     return [
       {
         name: 'get_products',
-        description: 'Get all products and services for the business. Auto-filters to only show enabled and available-in-store items.',
+        description: 'Get all products and services for the business. Auto-filters to only show enabled and available-in-store items. Search also matches the brand. When a product has externalUrl, that is the link to share with the customer.',
         inputSchema: {
           type: 'object',
           properties: {

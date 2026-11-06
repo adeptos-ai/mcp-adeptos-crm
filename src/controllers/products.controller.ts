@@ -67,7 +67,10 @@ export class ProductsController {
       availability: this.formatAvailability(p.trackInventory, p.stock, p.continueSelling),
       variants: formattedVariants,
       image: p.image || null,
-      slug: p.slug
+      slug: p.slug,
+      brand: p.brand || null,
+      // The product on the business's own site: the link to share when it is set.
+      externalUrl: p.externalUrl || null
     };
   }
 
